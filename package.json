@@ -1,6 +1,6 @@
 {
   "name": "@thinkthinksyn/nextjs-component",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Common Next.js components for sharing across repositories",
   "keywords": [
     "nextjs",
@@ -35,11 +35,12 @@
     "README.md"
   ],
   "scripts": {
-    "build": "npm run clean && node esbuild.config.js && node build-types.js",
+    "build": "npm run clean && node generate-exports.js && node esbuild.config.js && tsc --project tsconfig.build.json",
     "dev": "node esbuild.config.js --watch",
     "test": "next dev",
     "clean": "rimraf dist",
-    "pub": "npm publish --access public"
+    "pub": "npm publish --access public",
+    "generate-exports": "node generate-exports.js"
   },
   "peerDependencies": {
     "react": "*",
