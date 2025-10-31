@@ -15,22 +15,24 @@ import {
 } from "@/components/ui/alert-dialog"
 import { twMerge } from "tailwind-merge"
 import { useFloatingChatStore } from "@/store/floating-chat.store"
-import { IChatMessage, IChatMedia } from "@/types/chat.type"
-import { createConversationId, startChatSSE } from "@/utils/chat"
+import { IChatMedia } from "@/types/chat.type"
 import { AnimatePresence, motion } from "framer-motion"
-import { MessageCircle, X, Minimize2, Trash2 } from "lucide-react"
+import { MessageCircle, Minimize2, Trash2 } from "lucide-react"
 import { useCallback, useRef, useState, useEffect } from "react"
-import { toast } from "sonner"
 
 interface FloatingChatWidgetProps {
-  userAccessToken: string
+  defaultTitle?: string
+  userAccessToken: string | undefined
   userEndpoint: string
   guestEndpoint: string
   t: (key: string) => string
   lang: string
 }
 
+
+
 export function FloatingChatWidget({
+  defaultTitle = "New Conversation",
   userAccessToken,
   userEndpoint,
   guestEndpoint,
@@ -42,19 +44,17 @@ export function FloatingChatWidget({
     messages,
     isLoading,
     input,
+    showClearDialog,
     toggleOpen,
-    setOpen,
-    addMessage,
-    clearMessages,
-    setLoading,
     setInput,
-    updateLastMessage,
-    endStreaming,
+    setShowClearDialog,
+    handleStop,
+    handleMinimize,
+    handleClearConversation,
+    handleConfirmClear,
+    handleCancelClear,
+    handleSubmit,
   } = useFloatingChatStore()
-
-  const [isDragging, setIsDragging] = useState(false)
-  const [conversationId, setConversationId] = useState<string | null>(null)
-  const [showClearDialog, setShowClearDialog] = useState(false)
   const [hasHydrated, setHasHydrated] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -64,124 +64,20 @@ export function FloatingChatWidget({
     setHasHydrated(true)
   }, [])
 
-  const handleSubmit = useCallback(
-    async (content: string, attachments?: IChatMedia[]) => {
-      if (!content.trim() && (!attachments || attachments.length === 0)) {
-        toast.error(t("Please enter a message"))
-        return
-      }
-
-      // Create conversation ID if not exists
-      let currentConversationId = conversationId
-      if (!currentConversationId) {
-        try {
-          currentConversationId = await createConversationId()
-          setConversationId(currentConversationId)
-        } catch (error) {
-          console.error("Failed to create conversation ID:", error)
-          toast.error(t("Failed to start conversation. Please try again."))
-          return
-        }
-      }
-
-      // Add user message
-      const userMessage: IChatMessage = {
-        role: "user",
-        content: content.trim(),
-        createdAt: Date.now(),
-      }
-
-      if (attachments && attachments.length > 0) {
-        const filteredMedias = attachments
-          .map((media, i) =>
-            media.type === "audio" || media.type === "image"
-              ? [i, { ...media, content: media.content ?? (media as any).data }]
-              : null
-          )
-          .filter(Boolean) as [number, IChatMedia][]
-        if (filteredMedias.length > 0) {
-          userMessage.medias = Object.fromEntries(filteredMedias)
-        }
-      }
-
-      addMessage(userMessage)
-      setInput("")
-      setLoading(true)
-
-      try {
-        startChatSSE({
-          userEndpoint,
-          guestEndpoint,
-          conversation: {
-            messages: messages,
-            title: "Floating Chat",
-          },
-          conversationId: currentConversationId,
-          newMessage: userMessage,
-          userAccessToken,
-          onAddMessage: (message) => {
-            // Let the built-in SSE logic handle duplicate prevention
-            addMessage(message)
-          },
-          onStreamStart: () => setLoading(true),
-          onStreamEvent: (data, type) => {
-            if (["msg", "message", "text"].includes(type) && data) {
-              updateLastMessage(data)
-            }
-          },
-          setIsLoading: setLoading,
-          onStreamEnd: () => {
-            setLoading(false)
-          },
-        })
-      } catch (error: any) {
-        setLoading(false)
-        toast.error(t("Failed to get response. Please try again."))
-        console.error("Floating chat error:", error)
-      }
+  const handleSubmitWrapper = useCallback(
+    (content: string, attachments?: IChatMedia[]) => {
+      return handleSubmit(content, attachments, {
+        userEndpoint,
+        guestEndpoint,
+        defaultTitle,
+        userAccessToken,
+        t,
+      })
     },
-    [
-      addMessage,
-      setInput,
-      setLoading,
-      updateLastMessage,
-      t,
-      conversationId,
-      messages,
-      userAccessToken,
-    ]
+    [handleSubmit, userEndpoint, guestEndpoint, defaultTitle, userAccessToken, t]
   )
 
-  const handleStop = useCallback(() => {
-    setLoading(false)
-  }, [setLoading])
 
-  const handleMinimize = useCallback(() => {
-    setOpen(false)
-  }, [setOpen])
-
-  const handleClearConversation = useCallback(() => {
-    setShowClearDialog(true)
-  }, [])
-
-  const handleConfirmClear = useCallback(() => {
-    clearMessages()
-    setConversationId(null)
-    setInput("")
-    setShowClearDialog(false)
-    toast.success(t("Conversation cleared successfully"))
-  }, [clearMessages, setInput, t])
-
-  const handleCancelClear = useCallback(() => {
-    setShowClearDialog(false)
-  }, [])
-
-  const handleInputChange = useCallback(
-    (value: string) => {
-      setInput(value)
-    },
-    [setInput]
-  )
 
   // Don't render until hydrated to prevent suspense during first mount
   if (!hasHydrated) {
@@ -206,8 +102,8 @@ export function FloatingChatWidget({
               className={twMerge(
                 "h-14 w-14 rounded-full shadow-lg transition-all duration-200 hover:shadow-xl",
                 "text-primary-foreground bg-primary hover:bg-primary/90",
-                "border-2 border-background",
-                isDragging && "cursor-grabbing"
+                "border-2 border-background"
+                // isDragging && "cursor-grabbing"
               )}
               aria-label={t("Open chat")}
             >
@@ -324,8 +220,8 @@ export function FloatingChatWidget({
                 <ChatInput
                   ref={inputRef}
                   value={input}
-                  onChange={handleInputChange}
-                  onSubmit={handleSubmit}
+                  onChange={setInput}
+                  onSubmit={handleSubmitWrapper}
                   onStop={handleStop}
                   isLoading={isLoading}
                   placeholder={t("Ask a legal question...")}
@@ -356,7 +252,7 @@ export function FloatingChatWidget({
               {t("Cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleConfirmClear}
+              onClick={() => handleConfirmClear(t)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {t("Clear")}

@@ -15,7 +15,7 @@ export interface StartChatSSEOptions {
   conversation: Pick<ChatConversation, "messages" | "title">
   conversationId: string
   newMessage: IChatMessage
-  userAccessToken: string
+  userAccessToken: string | undefined
   onAddMessage: (msg: IChatMessage, convId: string) => void
   onStreamStart: (convId: string) => void
   onStreamEvent: (data: string, type: string, convId: string) => void
