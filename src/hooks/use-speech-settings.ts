@@ -9,9 +9,10 @@ interface SpeechSettings {
   ttsPitch: number
 }
 
-const SPEECH_SETTINGS_KEY = "legalExpression_speechSettings"
-
-export const useSpeechSettings = (appLang: string) => {
+export const useSpeechSettings = (
+  appLang: string,
+  speech_settings_key: string
+) => {
   const [settings, setSettings] = useState<SpeechSettings>(() => {
     const defaultLang = getDefaultSpeechLanguage(appLang)
     return {
@@ -26,7 +27,7 @@ export const useSpeechSettings = (appLang: string) => {
   // Load settings from localStorage on mount
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(SPEECH_SETTINGS_KEY)
+      const saved = localStorage.getItem(speech_settings_key)
       if (saved) {
         const parsed = JSON.parse(saved) as SpeechSettings
         setSettings((prev) => ({ ...prev, ...parsed }))
@@ -39,7 +40,7 @@ export const useSpeechSettings = (appLang: string) => {
   // Save settings to localStorage when they change
   useEffect(() => {
     try {
-      localStorage.setItem(SPEECH_SETTINGS_KEY, JSON.stringify(settings))
+      localStorage.setItem(speech_settings_key, JSON.stringify(settings))
     } catch (error) {
       console.error("Failed to save speech settings:", error)
     }
