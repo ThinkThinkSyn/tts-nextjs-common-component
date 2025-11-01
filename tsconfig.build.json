@@ -20,8 +20,10 @@
     "plugins": [
       {
         "name": "next"
-      }
+      },
+      { "transform": "typescript-transform-paths", "afterDeclarations": true }
     ],
+    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
