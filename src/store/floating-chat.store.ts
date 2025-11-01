@@ -5,8 +5,13 @@ import { create } from "zustand"
 import { persist, createJSONStorage, devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import { indexDBStorage } from "@/utils/storage"
-import { toast } from "sonner"
 import { createConversationId, startChatSSE } from "@/utils/chat"
+
+export const SUBMIT_ERRORS = Object.freeze({
+  NO_MSG: "Please enter a message",
+  FAIL_CONV: "Failed to start conversation. Please try again.",
+  FAIL_RESP: "Failed to get response. Please try again.",
+})
 
 interface FloatingChatState {
   /** Whether the floating chat widget is open/expanded */
@@ -65,9 +70,8 @@ interface FloatingChatActions {
       guestEndpoint: string
       defaultTitle: string
       userAccessToken: string | undefined
-      t: (key: string) => string
     }
-  ) => Promise<void>
+  ) => Promise<(typeof SUBMIT_ERRORS)[keyof typeof SUBMIT_ERRORS] | undefined>
 }
 
 type FloatingChatStore = FloatingChatState & FloatingChatActions
@@ -164,13 +168,12 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             state.showClearDialog = true
           }),
 
-        handleConfirmClear: (t: (key: string) => string) =>
+        handleConfirmClear: () =>
           set((state) => {
             state.messages = []
             state.conversationId = null
             state.input = ""
             state.showClearDialog = false
-            toast.success(t("Conversation cleared successfully"))
           }),
 
         handleCancelClear: () =>
@@ -186,14 +189,12 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             guestEndpoint: string
             defaultTitle: string
             userAccessToken: string | undefined
-            t: (key: string) => string
           }
         ) => {
           const state = useFloatingChatStore.getState()
 
           if (!content.trim() && (!attachments || attachments.length === 0)) {
-            toast.error(config.t("Please enter a message"))
-            return
+            return SUBMIT_ERRORS.NO_MSG
           }
 
           // Create conversation ID if not exists
@@ -206,10 +207,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
                 .setConversationId(currentConversationId)
             } catch (error) {
               console.error("Failed to create conversation ID:", error)
-              toast.error(
-                config.t("Failed to start conversation. Please try again.")
-              )
-              return
+              return SUBMIT_ERRORS.FAIL_CONV
             }
           }
 
@@ -272,8 +270,8 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             })
           } catch (error: any) {
             useFloatingChatStore.getState().setLoading(false)
-            toast.error(config.t("Failed to get response. Please try again."))
             console.error("Floating chat error:", error)
+            return SUBMIT_ERRORS.FAIL_RESP
           }
         },
       })),

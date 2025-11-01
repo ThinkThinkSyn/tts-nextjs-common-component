@@ -32,14 +32,14 @@ This package provides a collection of utilities, hooks, stores, and TypeScript t
 A hook for copying text to clipboard with feedback.
 
 ```tsx
-import { useCopyToClipboard } from '@thinkthinksyn/nextjs-component'
+import { useCopyToClipboard } from "@thinkthinksyn/nextjs-component"
 
 function MyComponent() {
   const { copyToClipboard, isCopied } = useCopyToClipboard()
-  
+
   return (
-    <button onClick={() => copyToClipboard('Hello World')}>
-      {isCopied ? 'Copied!' : 'Copy'}
+    <button onClick={() => copyToClipboard("Hello World")}>
+      {isCopied ? "Copied!" : "Copy"}
     </button>
   )
 }
@@ -64,15 +64,15 @@ A hook for managing speech synthesis settings.
 Zustand stores for managing chat functionality:
 
 - `useChatStore`: Main chat state management
-- `useChatInputStore`: Chat input state management  
+- `useChatInputStore`: Chat input state management
 - `useFloatingChatStore`: Floating chat widget state management
 
 ```tsx
-import { useChatStore } from '@thinkthinksyn/nextjs-component'
+import { useChatStore } from "@thinkthinksyn/nextjs-component"
 
 function ChatComponent() {
   const { messages, addMessage, clearMessages } = useChatStore()
-  
+
   // Use the store...
 }
 ```
@@ -82,12 +82,12 @@ function ChatComponent() {
 ### Chat Types
 
 ```tsx
-import type { 
-  IChatMessage, 
-  IChatMedia, 
+import type {
+  IChatMessage,
+  IChatMedia,
   ChatRole,
-  DbConversation 
-} from '@thinkthinksyn/nextjs-component'
+  DbConversation,
+} from "@thinkthinksyn/nextjs-component"
 
 // IChatMessage interface
 interface IChatMessage {
@@ -101,7 +101,7 @@ interface IChatMessage {
 
 // IChatMedia interface
 interface IChatMedia {
-  type: 'image' | 'video' | 'audio' | 'file'
+  type: "image" | "video" | "audio" | "file"
   content?: string | Blob
   data: string | Blob
 }
@@ -112,24 +112,24 @@ interface IChatMedia {
 ### General Utils
 
 ```tsx
-import { 
+import {
   getUtcTimestampInSeconds,
   throttle,
   objectPick,
-  objectOmit 
-} from '@thinkthinksyn/nextjs-component'
+  objectOmit,
+} from "@thinkthinksyn/nextjs-component"
 
 // Get current UTC timestamp in seconds
 const timestamp = getUtcTimestampInSeconds()
 
 // Throttle function calls
-const throttledFn = throttle(() => console.log('Called'), 1000)
+const throttledFn = throttle(() => console.log("Called"), 1000)
 
 // Pick specific properties from object
-const picked = objectPick({ a: 1, b: 2, c: 3 }, 'a', 'b') // { a: 1, b: 2 }
+const picked = objectPick({ a: 1, b: 2, c: 3 }, "a", "b") // { a: 1, b: 2 }
 
 // Omit specific properties from object
-const omitted = objectOmit({ a: 1, b: 2, c: 3 }, 'c') // { a: 1, b: 2 }
+const omitted = objectOmit({ a: 1, b: 2, c: 3 }, "c") // { a: 1, b: 2 }
 ```
 
 ### Chat Utils
@@ -153,12 +153,12 @@ Utilities for browser storage management.
 Internationalization utilities with client and server-side support.
 
 ```tsx
-import { useTranslation } from '@thinkthinksyn/nextjs-component'
+import { useTranslation } from "@thinkthinksyn/nextjs-component"
 
 // Client-side usage
 function MyComponent() {
   const { t } = useTranslation()
-  return <div>{t('hello')}</div>
+  return <div>{t("hello")}</div>
 }
 ```
 
@@ -170,7 +170,6 @@ This package includes the following dependencies:
 - `immer`: Immutable state updates
 - `lucide-react`: Icons
 - `tailwind-merge`: Tailwind CSS class merging
-- `sonner`: Toast notifications
 - `react-i18next`: Internationalization
 - `idb-keyval`: IndexedDB wrapper
 - And more...

@@ -1,4 +1,3 @@
-import { ObjectId } from "bson"
 import { ChatConversation } from "@/store/chat.store"
 import { IChatMessage } from "@/types/chat.type"
 import { SSE } from "sse.js"
@@ -119,7 +118,9 @@ export function startChatSSE(options: StartChatSSEOptions) {
   return chatResponseSource
 }
 
-export const createConversationId = async () => {
-  const resp = new ObjectId()
-  return resp.toString()
+export const createConversationId = async (
+  url: string = "https://api.thinkthinksyn.com/legalexp/chat/law/conversation/create_id"
+) => {
+  const resp = await fetch(url).then((res) => res.text())
+  return resp
 }

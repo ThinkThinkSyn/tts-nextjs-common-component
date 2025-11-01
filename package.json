@@ -1,6 +1,6 @@
 {
   "name": "@thinkthinksyn/nextjs-component",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "Common Next.js components for sharing across repositories",
   "keywords": [
     "nextjs",
@@ -55,7 +55,6 @@
     "@types/react-dom": "^19",
     "esbuild": "^0.25.11",
     "knip": "^5.66.4",
-    "next": "^15.1.6",
     "postcss": "^8.5.6",
     "rimraf": "^6.0.1",
     "tailwindcss": "^4",
@@ -65,7 +64,7 @@
     "typescript-transform-paths": "^3.5.5"
   },
   "dependencies": {
-    "bson": "^6.10.4",
+    "date-fns": "^4.1.0",
     "i18next-browser-languagedetector": "^8.2.0",
     "i18next-resources-to-backend": "^1.2.1",
     "idb-keyval": "^6.2.2",
@@ -73,12 +72,9 @@
     "lucide-react": "^0.548.0",
     "next": "^15",
     "react": "*",
-    "react-day-picker": "^9.11.1",
     "react-dom": "*",
     "react-i18next": "^16.2.3",
-    "sonner": "^2.0.7",
     "sse.js": "^2.7.2",
-    "tailwind-merge": "^3.3.1",
     "zustand": "^5.0.8"
   }
 }

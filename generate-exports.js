@@ -14,15 +14,16 @@ import { fileURLToPath } from "url"
 const srcDir = join(dirname(fileURLToPath(import.meta.url)), "src")
 
 // Files and folders to ignore
-const ignore = ["utils/i18n"]
+const ignore = ["utils/i18n"].map((path) => join(srcDir, path))
 
 function getAllDirectories(dirPath) {
   const items = readdirSync(dirPath, { withFileTypes: true })
   const dirs = []
 
   for (const item of items) {
-    if (item.isDirectory() && !ignore.includes(item.name)) {
+    if (item.isDirectory()) {
       const fullPath = join(dirPath, item.name)
+      if (ignore.includes(fullPath)) continue
       dirs.push(fullPath)
       dirs.push(...getAllDirectories(fullPath))
     }
@@ -61,8 +62,12 @@ function generateIndexFile(dirPath) {
   const existingLines = existingContent.split("\n").map((line) => line.trim())
 
   const newExports = allExports
+    .filter(
+      (item) =>
+        !existingLines.includes(`export * from './${item}'`) &&
+        !existingLines.includes(`export * from "./${item}"`)
+    )
     .map((item) => `export * from './${item}'`)
-    .filter((exportLine) => !existingLines.includes(exportLine))
 
   if (newExports.length > 0) {
     const content = newExports.join("\n") + "\n"
