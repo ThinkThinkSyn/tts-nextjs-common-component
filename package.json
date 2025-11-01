@@ -1,6 +1,6 @@
 {
   "name": "@thinkthinksyn/nextjs-component",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Common Next.js components for sharing across repositories",
   "keywords": [
     "nextjs",
@@ -41,6 +41,7 @@
     "test": "next dev",
     "clean": "rimraf dist",
     "pub": "npm publish --access public",
+    "unpub-old": "node unpublish-old.js",
     "generate-exports": "node generate-exports.js"
   },
   "peerDependencies": {

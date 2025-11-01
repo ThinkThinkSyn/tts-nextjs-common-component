@@ -1,11 +1,11 @@
-# @thinkthinksyn/nextjs-common-component
+# @thinkthinksyn/nextjs-component
 
-Common Next.js components for sharing across repositories. Supports Next.js 14 and 15.
+Common Next.js utilities, hooks, stores, and types for sharing across repositories. Supports Next.js 14 and 15.
 
 ## Installation
 
 ```bash
-npm install @thinkthinksyn/nextjs-common-component
+npm install @thinkthinksyn/nextjs-component
 ```
 
 ## Peer Dependencies
@@ -13,170 +13,167 @@ npm install @thinkthinksyn/nextjs-common-component
 Make sure you have these installed in your project:
 
 ```bash
-npm install react react-dom next framer-motion lucide-react
+npm install react react-dom
 ```
 
-## Components
+## What's Included
 
-### FloatingChatWidget
+This package provides a collection of utilities, hooks, stores, and TypeScript types for Next.js applications:
 
-A floating chat widget component that can be easily integrated into any Next.js application.
+- **Hooks**: Custom React hooks for common functionality
+- **Stores**: Zustand stores for state management
+- **Types**: TypeScript type definitions for chat and other features
+- **Utils**: Utility functions and i18n support
 
-#### Basic Usage
+## Hooks
+
+### useCopyToClipboard
+
+A hook for copying text to clipboard with feedback.
 
 ```tsx
-import { FloatingChatWidget } from '@thinkthinksyn/nextjs-common-component'
+import { useCopyToClipboard } from '@thinkthinksyn/nextjs-component'
 
-function App() {
-  const handleSubmit = async (content: string) => {
-    // Handle message submission
-    console.log('Message:', content)
-  }
-
-  const handleClear = () => {
-    // Handle conversation clear
-    console.log('Conversation cleared')
-  }
-
+function MyComponent() {
+  const { copyToClipboard, isCopied } = useCopyToClipboard()
+  
   return (
-    <FloatingChatWidget
-      title="Chat Assistant"
-      placeholder="Type your message..."
-      onSubmit={handleSubmit}
-      onClear={handleClear}
-    />
+    <button onClick={() => copyToClipboard('Hello World')}>
+      {isCopied ? 'Copied!' : 'Copy'}
+    </button>
   )
 }
 ```
 
-#### Controlled Usage
+### useHotkeys
+
+A hook for handling keyboard shortcuts.
+
+### useScrollToBottom
+
+A hook for automatically scrolling to the bottom of a container.
+
+### useSpeechSettings
+
+A hook for managing speech synthesis settings.
+
+## Stores
+
+### Chat Stores
+
+Zustand stores for managing chat functionality:
+
+- `useChatStore`: Main chat state management
+- `useChatInputStore`: Chat input state management  
+- `useFloatingChatStore`: Floating chat widget state management
 
 ```tsx
-import { FloatingChatWidget, IChatMessage } from '@thinkthinksyn/nextjs-common-component'
-import { useState } from 'react'
+import { useChatStore } from '@thinkthinksyn/nextjs-component'
 
-function App() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [messages, setMessages] = useState<IChatMessage[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-
-  const handleSubmit = async (content: string) => {
-    const userMessage: IChatMessage = {
-      role: 'user',
-      content,
-      createdAt: Date.now()
-    }
-    
-    setMessages(prev => [...prev, userMessage])
-    setIsLoading(true)
-    
-    // Simulate API call
-    setTimeout(() => {
-      const assistantMessage: IChatMessage = {
-        role: 'assistant',
-        content: 'This is a response',
-        createdAt: Date.now()
-      }
-      setMessages(prev => [...prev, assistantMessage])
-      setIsLoading(false)
-    }, 1000)
-  }
-
-  const handleClear = () => {
-    setMessages([])
-  }
-
-  return (
-    <FloatingChatWidget
-      isOpen={isOpen}
-      onToggle={setIsOpen}
-      messages={messages}
-      isLoading={isLoading}
-      onSubmit={handleSubmit}
-      onClear={handleClear}
-    />
-  )
+function ChatComponent() {
+  const { messages, addMessage, clearMessages } = useChatStore()
+  
+  // Use the store...
 }
 ```
-
-#### Props
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `title` | `string` | `"Chat Assistant"` | Title displayed in the chat header |
-| `placeholder` | `string` | `"Type a message..."` | Input placeholder text |
-| `maxLength` | `number` | `500` | Maximum message length |
-| `showFileUpload` | `boolean` | `false` | Whether to show file upload (not implemented yet) |
-| `className` | `string` | `""` | Additional CSS classes for the chat bubble |
-| `onSubmit` | `(content: string, attachments?: IChatMedia[]) => Promise<void>` | **Required** | Callback when user submits a message |
-| `onClear` | `() => void` | `undefined` | Callback when user clears conversation (optional) |
-| `isOpen` | `boolean` | `undefined` | Controlled state for chat visibility |
-| `onToggle` | `(open: boolean) => void` | `undefined` | Callback for controlling chat visibility |
-| `messages` | `IChatMessage[]` | `[]` | Array of chat messages |
-| `isLoading` | `boolean` | `false` | Whether the chat is in loading state |
 
 ## Types
 
-### IChatMessage
+### Chat Types
 
 ```tsx
+import type { 
+  IChatMessage, 
+  IChatMedia, 
+  ChatRole,
+  DbConversation 
+} from '@thinkthinksyn/nextjs-component'
+
+// IChatMessage interface
 interface IChatMessage {
-  role: 'user' | 'assistant' | 'system'
+  id?: string
+  role: ChatRole // 'user' | 'assistant' | 'system' | 'lawyer'
   content: string
   createdAt: number
   medias?: Record<number, IChatMedia>
+  parts?: Array<ChatMessagePart>
+}
+
+// IChatMedia interface
+interface IChatMedia {
+  type: 'image' | 'video' | 'audio' | 'file'
+  content?: string | Blob
+  data: string | Blob
 }
 ```
 
-### IChatMedia
+## Utilities
+
+### General Utils
 
 ```tsx
-interface IChatMedia {
-  type: 'audio' | 'image' | 'file'
-  content?: string
-  data?: string
-  name?: string
-  size?: number
+import { 
+  getUtcTimestampInSeconds,
+  throttle,
+  objectPick,
+  objectOmit 
+} from '@thinkthinksyn/nextjs-component'
+
+// Get current UTC timestamp in seconds
+const timestamp = getUtcTimestampInSeconds()
+
+// Throttle function calls
+const throttledFn = throttle(() => console.log('Called'), 1000)
+
+// Pick specific properties from object
+const picked = objectPick({ a: 1, b: 2, c: 3 }, 'a', 'b') // { a: 1, b: 2 }
+
+// Omit specific properties from object
+const omitted = objectOmit({ a: 1, b: 2, c: 3 }, 'c') // { a: 1, b: 2 }
+```
+
+### Chat Utils
+
+Utilities for chat functionality including message processing and formatting.
+
+### File Utils
+
+Utilities for file handling and processing.
+
+### Speech Utils
+
+Utilities for speech synthesis and recognition.
+
+### Storage Utils
+
+Utilities for browser storage management.
+
+### i18n Utils
+
+Internationalization utilities with client and server-side support.
+
+```tsx
+import { useTranslation } from '@thinkthinksyn/nextjs-component'
+
+// Client-side usage
+function MyComponent() {
+  const { t } = useTranslation()
+  return <div>{t('hello')}</div>
 }
 ```
 
-## Styling
+## Dependencies
 
-The component uses Tailwind CSS classes. Make sure your project has Tailwind CSS configured with the following CSS variables in your global styles:
+This package includes the following dependencies:
 
-```css
-:root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --muted: 210 40% 96%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --accent: 210 40% 96%;
-  --accent-foreground: 222.2 84% 4.9%;
-}
-
-.dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-}
-```
+- `zustand`: State management
+- `immer`: Immutable state updates
+- `lucide-react`: Icons
+- `tailwind-merge`: Tailwind CSS class merging
+- `sonner`: Toast notifications
+- `react-i18next`: Internationalization
+- `idb-keyval`: IndexedDB wrapper
+- And more...
 
 ## License
 
