@@ -190,7 +190,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
           }
         ) => {
           const state = useFloatingChatStore.getState()
-          
+
           if (!content.trim() && (!attachments || attachments.length === 0)) {
             toast.error(config.t("Please enter a message"))
             return
@@ -201,10 +201,14 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
           if (!currentConversationId) {
             try {
               currentConversationId = await createConversationId()
-              useFloatingChatStore.getState().setConversationId(currentConversationId)
+              useFloatingChatStore
+                .getState()
+                .setConversationId(currentConversationId)
             } catch (error) {
               console.error("Failed to create conversation ID:", error)
-              toast.error(config.t("Failed to start conversation. Please try again."))
+              toast.error(
+                config.t("Failed to start conversation. Please try again.")
+              )
               return
             }
           }
@@ -220,7 +224,13 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             const filteredMedias = attachments
               .map((media, i) =>
                 media.type === "audio" || media.type === "image"
-                  ? [i, { ...media, content: media.content ?? (media as any).data }]
+                  ? [
+                      i,
+                      {
+                        ...media,
+                        content: media.content ?? (media as any).data,
+                      },
+                    ]
                   : null
               )
               .filter(Boolean) as [number, IChatMedia][]
@@ -248,7 +258,8 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
               onAddMessage: (message) => {
                 useFloatingChatStore.getState().addMessage(message)
               },
-              onStreamStart: () => useFloatingChatStore.getState().setLoading(true),
+              onStreamStart: () =>
+                useFloatingChatStore.getState().setLoading(true),
               onStreamEvent: (data, type) => {
                 if (["msg", "message", "text"].includes(type) && data) {
                   useFloatingChatStore.getState().updateLastMessage(data)

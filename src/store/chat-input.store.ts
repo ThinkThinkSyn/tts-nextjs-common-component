@@ -1,10 +1,10 @@
 "use client"
 
-import { IChatMedia } from "@/types/chat.type"
+import { type IChatMedia } from "@/types/chat.type"
 import { create } from "zustand"
 import { immer } from "zustand/middleware/immer"
 
-interface ChatMedia extends IChatMedia {
+export interface ChatMedia extends IChatMedia {
   fileName?: string
   fileSize?: number
   fileType?: string
@@ -58,5 +58,3 @@ export const useChatInputStore = create<ChatInputStore>()(
       }),
   }))
 )
-
-export type { ChatMedia }

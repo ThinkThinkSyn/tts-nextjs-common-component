@@ -10,7 +10,7 @@ import { create } from "zustand"
 import { persist, createJSONStorage, devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 
-interface ChatConversation extends DbConversation {
+export interface ChatConversation extends DbConversation {
   relatedArticles: IArticles[]
   relatedQuestions: string[]
   isStarred?: boolean
@@ -18,8 +18,6 @@ interface ChatConversation extends DbConversation {
   isArchived?: boolean
   votes?: Vote[]
 }
-
-export type { ChatConversation }
 
 /**
  * `ChatState` interface defines the structure of the chat state,
