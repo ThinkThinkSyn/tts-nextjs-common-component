@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect, useState } from "react"
+import { useRef, useEffect, useState } from "react"
 
 export function useScrollToBottom() {
   const containerRef = useRef<HTMLDivElement>(null)
