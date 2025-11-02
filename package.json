@@ -1,6 +1,6 @@
 {
   "name": "@thinkthinksyn/nextjs-component",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Common Next.js components for sharing across repositories",
   "keywords": [
     "nextjs",
