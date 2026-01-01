@@ -86,6 +86,27 @@ A hook for automatically scrolling to the bottom of a container.
 
 A hook for managing speech synthesis settings.
 
+### useChatErrorHandler
+
+A hook for handling chat errors with custom error handlers (e.g., toast notifications).
+
+```tsx
+import { useChatErrorHandler } from "@thinkthinksyn/nextjs-component"
+import { toast } from "sonner" // or any toast library
+
+function MyComponent() {
+  // Automatically handle chat errors with toast notifications
+  useChatErrorHandler((error) => {
+    toast.error(error.message)
+  })
+
+  return <FloatingChat />
+}
+```
+
+**Options:**
+- `autoClear` (default: `true`) - Whether to automatically clear the error after handling it
+
 ## Stores
 
 ### Chat Stores
@@ -106,6 +127,105 @@ function ChatComponent() {
 }
 ```
 
+#### Error Handling in Chat
+
+The floating chat store includes built-in error state management:
+
+```tsx
+import { useFloatingChatStore } from "@thinkthinksyn/nextjs-component"
+
+function ChatComponent() {
+  const { error, clearError } = useFloatingChatStore()
+
+  // Manually handle errors
+  useEffect(() => {
+    if (error) {
+      console.error("Chat error:", error)
+      // Show your error UI
+      clearError() // Clear when done
+    }
+  }, [error, clearError])
+}
+```
+
+Or use the convenience hook:
+
+```tsx
+import { useChatErrorHandler } from "@thinkthinksyn/nextjs-component"
+import { toast } from "react-hot-toast"
+
+function App() {
+  useChatErrorHandler((error) => toast.error(error.message))
+  return <YourChatComponent />
+}
+```
+
+## Utils
+
+### Chat Utils - startChatSSE
+
+The `startChatSSE` function handles Server-Sent Events (SSE) for real-time chat streaming.
+
+```tsx
+import { startChatSSE } from "@thinkthinksyn/nextjs-component"
+import { toast } from "sonner"
+
+// Example with error handling
+startChatSSE({
+  userEndpoint: "https://api.example.com/chat",
+  guestEndpoint: "https://api.example.com/guest-chat",
+  conversation: { messages, title: "Chat" },
+  conversationId: "conv-123",
+  newMessage: { role: "user", content: "Hello", createdAt: Date.now() },
+  userAccessToken: token,
+  
+  // Required callbacks
+  onAddMessage: (msg, convId) => {
+    // Add message to your store
+  },
+  onStreamStart: (convId) => {
+    // Set loading state
+  },
+  onStreamEvent: (data, type, convId) => {
+    // Handle streaming text updates
+    if (["msg", "message", "text"].includes(type)) {
+      // Append data to message
+    }
+  },
+  onStreamEnd: (convId) => {
+    // Clear loading state
+  },
+  setIsLoading: (loading) => {
+    // Update loading state
+  },
+  
+  // Optional callbacks
+  onRagMedia: (media, convId) => {
+    // Handle RAG-retrieved media (images, files, etc.)
+    console.log("Received media:", media.url, media.type)
+  },
+  onError: (error, convId) => {
+    // Handle errors (network failures, SSE errors, etc.)
+    toast.error(error.message)
+  },
+})
+```
+
+**Error Handling Best Practices:**
+- Always provide an `onError` callback to handle connection errors
+- Use toast notifications or error UI to inform users
+- The error callback receives the error object and conversation ID
+- Errors automatically stop loading state and close the connection
+
+### Chat Utils - createConversationId
+
+```tsx
+import { createConversationId } from "@thinkthinksyn/nextjs-component"
+
+// Fetch conversation ID from your API
+const convId = await createConversationId("https://api.example.com/create-id")
+```
+
 ## Types
 
 ### Chat Types
@@ -116,6 +236,7 @@ import type {
   IChatMedia,
   ChatRole,
   DbConversation,
+  IRagMediaEvent,
 } from "@thinkthinksyn/nextjs-component"
 
 // IChatMessage interface

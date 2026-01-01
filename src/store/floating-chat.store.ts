@@ -26,6 +26,8 @@ interface FloatingChatState {
   conversationId: string | null
   /** Whether the clear dialog is shown */
   showClearDialog: boolean
+  /** Last error that occurred */
+  error: Error | null
 }
 
 interface FloatingChatActions {
@@ -53,6 +55,10 @@ interface FloatingChatActions {
   setConversationId: (id: string | null) => void
   /** Set show clear dialog state */
   setShowClearDialog: (show: boolean) => void
+  /** Set error state */
+  setError: (error: Error | null) => void
+  /** Clear error state */
+  clearError: () => void
   /** Handle stop action */
   handleStop: () => void
   /** Handle minimize action */
@@ -91,6 +97,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
         input: "",
         conversationId: null,
         showClearDialog: false,
+        error: null,
 
         // Actions
         toggleOpen: () =>
@@ -192,6 +199,16 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             state.showClearDialog = show
           }),
 
+        setError: (error: Error | null) =>
+          set((state) => {
+            state.error = error
+          }),
+
+        clearError: () =>
+          set((state) => {
+            state.error = null
+          }),
+
         handleStop: () =>
           set((state) => {
             state.isLoading = false
@@ -289,6 +306,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
           storeActions.addMessage(userMessage)
           storeActions.setInput("")
           storeActions.setLoading(true)
+          storeActions.clearError()
 
           try {
             startChatSSE({
@@ -313,6 +331,9 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
               },
               onRagMedia: (media) => {
                 useFloatingChatStore.getState().onRagMedia(media)
+              },
+              onError: (error) => {
+                useFloatingChatStore.getState().setError(error)
               },
               setIsLoading: useFloatingChatStore.getState().setLoading,
               onStreamEnd: () => {

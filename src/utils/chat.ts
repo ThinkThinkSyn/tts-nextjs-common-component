@@ -19,6 +19,7 @@ export interface StartChatSSEOptions {
   onStreamStart: (convId: string) => void
   onStreamEvent: (data: string, type: string, convId: string) => void
   onRagMedia?: (media: IRagMediaEvent, convId: string) => void
+  onError?: (error: Error, convId: string) => void
   setIsLoading: (loading: boolean) => void
   onStreamEnd: (convId: string) => void
 }
@@ -35,6 +36,7 @@ export function startChatSSE(options: StartChatSSEOptions) {
     onStreamStart,
     onStreamEvent,
     onRagMedia,
+    onError,
     setIsLoading,
     onStreamEnd,
   } = options
@@ -85,7 +87,11 @@ export function startChatSSE(options: StartChatSSEOptions) {
     setIsLoading(false)
     onStreamEnd(conversationId)
     if (sseConnection) sseConnection.close()
-      throw new Error("Chat connection error, please try again later.")
+    
+    const error = new Error("Chat connection error, please try again later.")
+    if (onError) {
+      onError(error, conversationId)
+    }
   }
 
   chatResponseSource.onabort = () => {
