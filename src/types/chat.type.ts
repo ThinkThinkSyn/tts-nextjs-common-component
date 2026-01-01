@@ -11,7 +11,6 @@ export interface IRagMediaEvent {
 
 export interface IChatMedia {
   type: ChatMediaType
-  content?: string | Blob
   data: string | Blob
   fileType?: string
   fileSize?: number
