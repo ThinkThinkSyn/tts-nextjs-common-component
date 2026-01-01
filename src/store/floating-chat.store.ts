@@ -28,6 +28,8 @@ interface FloatingChatState {
   showClearDialog: boolean
   /** Last error that occurred */
   error: Error | null
+  /** Pending RAG media to be attached to the next assistant message */
+  pendingRagMedia: IRagMediaEvent[]
 }
 
 interface FloatingChatActions {
@@ -98,6 +100,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
         conversationId: null,
         showClearDialog: false,
         error: null,
+        pendingRagMedia: [],
 
         // Actions
         toggleOpen: () =>
@@ -112,12 +115,41 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
 
         addMessage: (message: IChatMessage) =>
           set((state) => {
+            // If this is an assistant message and we have pending RAG media, attach it
+            if (message.role === "assistant" && state.pendingRagMedia.length > 0) {
+              if (!message.medias) {
+                message.medias = {}
+              }
+              if (!message.parts) {
+                message.parts = []
+              }
+              
+              state.pendingRagMedia.forEach((media, index) => {
+                message.medias![index] = {
+                  type: "rag-media",
+                  data: media.url,
+                  content: media.url,
+                } as IChatMedia
+                
+                message.parts!.push({
+                  type: "file",
+                  url: media.url,
+                  mediaType: media.type,
+                  name: media.id,
+                })
+              })
+              
+              // Clear pending media after attaching
+              state.pendingRagMedia = []
+            }
+            
             state.messages.push(message)
           }),
 
         clearMessages: () =>
           set((state) => {
             state.messages = []
+            state.pendingRagMedia = []
           }),
 
         setLoading: (isLoading: boolean) =>
@@ -140,37 +172,8 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
 
         onRagMedia: (media: IRagMediaEvent) =>
           set((state) => {
-            if (state.messages.length > 0) {
-              const lastMessageIndex = state.messages.length - 1
-              const lastMessage = state.messages[lastMessageIndex]
-
-              // Initialize medias if not present
-              if (!lastMessage.medias) {
-                lastMessage.medias = {}
-              }
-
-              // Find the next available index for the media
-              const existingIndices = Object.keys(lastMessage.medias).map(Number)
-              const nextIndex = existingIndices.length > 0 ? Math.max(...existingIndices) + 1 : 0
-
-              // Add the RAG media to the message
-              lastMessage.medias[nextIndex] = {
-                type: "rag-media",
-                data: media.url,
-                content: media.url,
-              } as IChatMedia
-
-              // Also add to parts for multimodal rendering
-              if (!lastMessage.parts) {
-                lastMessage.parts = []
-              }
-              lastMessage.parts.push({
-                type: "file",
-                url: media.url,
-                mediaType: media.type,
-                name: media.id,
-              })
-            }
+            // Buffer the RAG media - it will be attached when assistant message is created
+            state.pendingRagMedia.push(media)
           }),
 
         startStreaming: () =>
@@ -230,6 +233,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             state.conversationId = null
             state.input = ""
             state.showClearDialog = false
+            state.pendingRagMedia = []
           }),
 
         handleCancelClear: () =>

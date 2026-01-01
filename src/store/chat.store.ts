@@ -34,6 +34,8 @@ interface ChatState {
   currentConversationId: string | null
   /** current streaming status */
   isStreaming: boolean
+  /** Pending RAG media per conversation to be attached to the next assistant message */
+  pendingRagMedia: Record<string, IRagMediaEvent[]>
 }
 
 interface ChatAction {
@@ -110,6 +112,7 @@ export const useChatStore = create<BoundState>()(
         currentUserId: "guest",
         currentConversationId: null,
         isStreaming: false,
+        pendingRagMedia: {},
 
         // User management
         setCurrentUserId: (userId: string) =>
@@ -135,6 +138,35 @@ export const useChatStore = create<BoundState>()(
               convId
             )
             if (conversation) {
+              // If this is an assistant message and we have pending RAG media, attach it
+              const pendingMedia = state.pendingRagMedia[convId] || []
+              if (message.role === "assistant" && pendingMedia.length > 0) {
+                if (!message.medias) {
+                  message.medias = {}
+                }
+                if (!message.parts) {
+                  message.parts = []
+                }
+                
+                pendingMedia.forEach((media, index) => {
+                  message.medias![index] = {
+                    type: "rag-media",
+                    data: media.url,
+                    content: media.url,
+                  } as IChatMedia
+                  
+                  message.parts!.push({
+                    type: "file",
+                    url: media.url,
+                    mediaType: media.type,
+                    name: media.id,
+                  })
+                })
+                
+                // Clear pending media after attaching
+                state.pendingRagMedia[convId] = []
+              }
+              
               conversation.messages.push(message)
               conversation.updatedAt = Date.now()
             }
@@ -192,44 +224,11 @@ export const useChatStore = create<BoundState>()(
 
         onRagMedia: (media: IRagMediaEvent, convId: string) =>
           set((state) => {
-            const conversation = _getConv(
-              state.allUsersConversations,
-              state.currentUserId,
-              convId
-            )
-            if (conversation && conversation.messages.length > 0) {
-              const lastMessageIndex = conversation.messages.length - 1
-              const lastMessage = conversation.messages[lastMessageIndex]
-
-              // Initialize medias if not present
-              if (!lastMessage.medias) {
-                lastMessage.medias = {}
-              }
-
-              // Find the next available index for the media
-              const existingIndices = Object.keys(lastMessage.medias).map(Number)
-              const nextIndex = existingIndices.length > 0 ? Math.max(...existingIndices) + 1 : 0
-
-              // Add the RAG media to the message
-              lastMessage.medias[nextIndex] = {
-                type: "rag-media",
-                data: media.url,
-                content: media.url,
-              } as IChatMedia
-
-              // Also add to parts for multimodal rendering
-              if (!lastMessage.parts) {
-                lastMessage.parts = []
-              }
-              lastMessage.parts.push({
-                type: "file",
-                url: media.url,
-                mediaType: media.type,
-                name: media.id,
-              })
-
-              conversation.updatedAt = Date.now()
+            // Buffer the RAG media - it will be attached when assistant message is created
+            if (!state.pendingRagMedia[convId]) {
+              state.pendingRagMedia[convId] = []
             }
+            state.pendingRagMedia[convId].push(media)
           }),
 
         onLoadConversations: (conversations) =>
