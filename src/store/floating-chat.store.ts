@@ -30,6 +30,8 @@ interface FloatingChatState {
   error: Error | null
   /** Pending RAG media to be attached to the next assistant message */
   pendingRagMedia: IRagMediaEvent[]
+  /** Active SSE connection */
+  sseConnection: any | null
 }
 
 interface FloatingChatActions {
@@ -101,6 +103,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
         showClearDialog: false,
         error: null,
         pendingRagMedia: [],
+        sseConnection: null,
 
         // Actions
         toggleOpen: () =>
@@ -215,6 +218,10 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
         handleStop: () =>
           set((state) => {
             state.isLoading = false
+            if (state.sseConnection) {
+              state.sseConnection.close()
+              state.sseConnection = null
+            }
           }),
 
         handleMinimize: () =>
@@ -313,7 +320,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
           storeActions.clearError()
 
           try {
-            startChatSSE({
+            const connection = startChatSSE({
               userEndpoint: config.userEndpoint,
               guestEndpoint: config.guestEndpoint,
               conversation: {
@@ -341,9 +348,15 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
               },
               setIsLoading: useFloatingChatStore.getState().setLoading,
               onStreamEnd: () => {
-                useFloatingChatStore.getState().setLoading(false)
+                const store = useFloatingChatStore.getState()
+                store.setLoading(false)
+                // Clear the connection reference
+                useFloatingChatStore.setState({ sseConnection: null })
               },
             })
+            
+            // Store the connection so handleStop can close it
+            useFloatingChatStore.setState({ sseConnection: connection })
           } catch (error: any) {
             useFloatingChatStore.getState().setLoading(false)
             console.error("Floating chat error:", error)

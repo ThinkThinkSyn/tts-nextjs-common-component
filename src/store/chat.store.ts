@@ -42,12 +42,15 @@ interface ChatState {
   isStreaming: boolean
   /** Pending RAG media per conversation to be attached to the next assistant message */
   pendingRagMedia: Record<string, IRagMediaEvent[]>
+  /** Active SSE connections per conversation */
+  sseConnections: Record<string, any>
 }
 
 interface ChatAction {
   // User management
   setCurrentUserId: (userId: string) => void
   setIsStreaming: (isStreaming: boolean) => void
+  stopStreaming: (convId: string) => void
 
   // Message management
   onAddMessage: (message: IChatMessage, convId: string) => void
@@ -55,6 +58,7 @@ interface ChatAction {
   onStreamEvent: (data: string, type: string, convId: string) => void
   onRagMedia: (media: IRagMediaEvent, convId: string) => void
   onStreamEnd: (convId: string) => void
+  setSseConnection: (convId: string, connection: any) => void
   onLoadConversations: (conversations: ChatConversation[]) => void
   onLoadConversationMessages: (convId: string, messages: IChatMessage[]) => void
   onDeleteMessages: (convId: string, msgId: string) => void
@@ -119,6 +123,7 @@ export const useChatStore = create<BoundState>()(
         currentConversationId: null,
         isStreaming: false,
         pendingRagMedia: {},
+        sseConnections: {},
 
         // User management
         setCurrentUserId: (userId: string) =>
@@ -133,6 +138,15 @@ export const useChatStore = create<BoundState>()(
         setIsStreaming: (isStreaming: boolean) =>
           set((state) => {
             state.isStreaming = isStreaming
+          }),
+
+        stopStreaming: (convId: string) =>
+          set((state) => {
+            state.isStreaming = false
+            if (state.sseConnections[convId]) {
+              state.sseConnections[convId].close()
+              delete state.sseConnections[convId]
+            }
           }),
 
         // Message management
@@ -226,6 +240,15 @@ export const useChatStore = create<BoundState>()(
             if (conversation) {
               conversation.updatedAt = Date.now()
             }
+            // Clear the SSE connection reference
+            if (state.sseConnections[convId]) {
+              delete state.sseConnections[convId]
+            }
+          }),
+
+        setSseConnection: (convId: string, connection: any) =>
+          set((state) => {
+            state.sseConnections[convId] = connection
           }),
 
         onRagMedia: (media: IRagMediaEvent, convId: string) =>
