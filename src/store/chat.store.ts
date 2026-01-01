@@ -172,7 +172,6 @@ export const useChatStore = create<BoundState>()(
                   message.medias![index] = {
                     type: "rag-media",
                     data: media.url,
-                    content: media.url,
                   } as IChatMedia
                   
                   message.parts!.push({

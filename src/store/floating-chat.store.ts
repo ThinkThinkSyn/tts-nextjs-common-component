@@ -131,7 +131,6 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
                 message.medias![index] = {
                   type: "rag-media",
                   data: media.url,
-                  content: media.url,
                   fileName: media.id,
                 } as IChatMedia
                 
@@ -299,13 +298,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             const filteredMedias = attachments
               .map((media, i) =>
                 media.type === "audio" || media.type === "image"
-                  ? [
-                      i,
-                      {
-                        ...media,
-                        content: media.content ?? (media as any).data,
-                      },
-                    ]
+                  ? [i, media]
                   : null
               )
               .filter(Boolean) as [number, IChatMedia][]
