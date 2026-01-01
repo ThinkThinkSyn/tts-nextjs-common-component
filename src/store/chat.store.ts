@@ -2,8 +2,10 @@ import { indexDBStorage } from "@/utils/storage"
 import {
   IArticles,
   IChatMessage,
+  IChatMedia,
   DbConversation,
   Vote,
+  IRagMediaEvent,
 } from "@/types/chat.type"
 import type { WritableDraft } from "immer"
 import { create } from "zustand"
@@ -43,6 +45,7 @@ interface ChatAction {
   onAddMessage: (message: IChatMessage, convId: string) => void
   onStreamStart: (convId: string) => void
   onStreamEvent: (data: string, type: string, convId: string) => void
+  onRagMedia: (media: IRagMediaEvent, convId: string) => void
   onStreamEnd: (convId: string) => void
   onLoadConversations: (conversations: ChatConversation[]) => void
   onLoadConversationMessages: (convId: string, messages: IChatMessage[]) => void
@@ -183,6 +186,48 @@ export const useChatStore = create<BoundState>()(
               convId
             )
             if (conversation) {
+              conversation.updatedAt = Date.now()
+            }
+          }),
+
+        onRagMedia: (media: IRagMediaEvent, convId: string) =>
+          set((state) => {
+            const conversation = _getConv(
+              state.allUsersConversations,
+              state.currentUserId,
+              convId
+            )
+            if (conversation && conversation.messages.length > 0) {
+              const lastMessageIndex = conversation.messages.length - 1
+              const lastMessage = conversation.messages[lastMessageIndex]
+
+              // Initialize medias if not present
+              if (!lastMessage.medias) {
+                lastMessage.medias = {}
+              }
+
+              // Find the next available index for the media
+              const existingIndices = Object.keys(lastMessage.medias).map(Number)
+              const nextIndex = existingIndices.length > 0 ? Math.max(...existingIndices) + 1 : 0
+
+              // Add the RAG media to the message
+              lastMessage.medias[nextIndex] = {
+                type: "rag-media",
+                data: media.url,
+                content: media.url,
+              } as IChatMedia
+
+              // Also add to parts for multimodal rendering
+              if (!lastMessage.parts) {
+                lastMessage.parts = []
+              }
+              lastMessage.parts.push({
+                type: "file",
+                url: media.url,
+                mediaType: media.type,
+                name: media.id,
+              })
+
               conversation.updatedAt = Date.now()
             }
           }),

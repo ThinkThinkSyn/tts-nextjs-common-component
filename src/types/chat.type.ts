@@ -1,6 +1,13 @@
 export type ChatRole = "user" | "assistant" | "system" | "lawyer"
-export type ChatMediaType = "image" | "video" | "audio" | "file"
+export type ChatMediaType = "image" | "video" | "audio" | "file" | "rag-media"
 export type ChatMedias = Record<number, IChatMedia>
+
+/** RAG media event data from SSE stream */
+export interface IRagMediaEvent {
+  url: string
+  type: string
+  id: string
+}
 
 export interface IChatMedia {
   type: ChatMediaType

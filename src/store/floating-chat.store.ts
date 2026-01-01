@@ -1,6 +1,6 @@
 "use client"
 
-import { IChatMessage, IChatMedia } from "@/types/chat.type"
+import { IChatMessage, IChatMedia, IRagMediaEvent } from "@/types/chat.type"
 import { create } from "zustand"
 import { persist, createJSONStorage, devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
@@ -43,6 +43,8 @@ interface FloatingChatActions {
   setInput: (input: string) => void
   /** Update the last message content (for streaming) */
   updateLastMessage: (content: string) => void
+  /** Add RAG media to the last message */
+  onRagMedia: (media: IRagMediaEvent) => void
   /** Start streaming response */
   startStreaming: () => void
   /** End streaming response */
@@ -70,6 +72,8 @@ interface FloatingChatActions {
       guestEndpoint: string
       defaultTitle: string
       userAccessToken: string | undefined
+      /** URL to fetch conversation ID from, or a custom function that returns a conversation ID */
+      conversationIdSource?: string | (() => Promise<string>)
     }
   ) => Promise<(typeof SUBMIT_ERRORS)[keyof typeof SUBMIT_ERRORS] | undefined>
 }
@@ -124,6 +128,41 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             if (state.messages.length > 0) {
               const lastMessageIndex = state.messages.length - 1
               state.messages[lastMessageIndex].content += content
+            }
+          }),
+
+        onRagMedia: (media: IRagMediaEvent) =>
+          set((state) => {
+            if (state.messages.length > 0) {
+              const lastMessageIndex = state.messages.length - 1
+              const lastMessage = state.messages[lastMessageIndex]
+
+              // Initialize medias if not present
+              if (!lastMessage.medias) {
+                lastMessage.medias = {}
+              }
+
+              // Find the next available index for the media
+              const existingIndices = Object.keys(lastMessage.medias).map(Number)
+              const nextIndex = existingIndices.length > 0 ? Math.max(...existingIndices) + 1 : 0
+
+              // Add the RAG media to the message
+              lastMessage.medias[nextIndex] = {
+                type: "rag-media",
+                data: media.url,
+                content: media.url,
+              } as IChatMedia
+
+              // Also add to parts for multimodal rendering
+              if (!lastMessage.parts) {
+                lastMessage.parts = []
+              }
+              lastMessage.parts.push({
+                type: "file",
+                url: media.url,
+                mediaType: media.type,
+                name: media.id,
+              })
             }
           }),
 
@@ -189,6 +228,8 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             guestEndpoint: string
             defaultTitle: string
             userAccessToken: string | undefined
+            /** URL to fetch conversation ID from, or a custom function that returns a conversation ID */
+            conversationIdSource?: string | (() => Promise<string>)
           }
         ) => {
           const state = useFloatingChatStore.getState()
@@ -201,7 +242,14 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
           let currentConversationId = state.conversationId
           if (!currentConversationId) {
             try {
-              currentConversationId = await createConversationId()
+              // Support custom function or URL for conversation ID creation
+              if (typeof config.conversationIdSource === "function") {
+                currentConversationId = await config.conversationIdSource()
+              } else {
+                currentConversationId = await createConversationId(
+                  config.conversationIdSource
+                )
+              }
               useFloatingChatStore
                 .getState()
                 .setConversationId(currentConversationId)
@@ -262,6 +310,9 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
                 if (["msg", "message", "text"].includes(type) && data) {
                   useFloatingChatStore.getState().updateLastMessage(data)
                 }
+              },
+              onRagMedia: (media) => {
+                useFloatingChatStore.getState().onRagMedia(media)
               },
               setIsLoading: useFloatingChatStore.getState().setLoading,
               onStreamEnd: () => {

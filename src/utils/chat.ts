@@ -1,5 +1,5 @@
 import { ChatConversation } from "@/store/chat.store"
-import { IChatMessage } from "@/types/chat.type"
+import { IChatMessage, IRagMediaEvent } from "@/types/chat.type"
 import { SSE } from "sse.js"
 
 type ChatReceiptEventData = {
@@ -18,6 +18,7 @@ export interface StartChatSSEOptions {
   onAddMessage: (msg: IChatMessage, convId: string) => void
   onStreamStart: (convId: string) => void
   onStreamEvent: (data: string, type: string, convId: string) => void
+  onRagMedia?: (media: IRagMediaEvent, convId: string) => void
   setIsLoading: (loading: boolean) => void
   onStreamEnd: (convId: string) => void
 }
@@ -33,6 +34,7 @@ export function startChatSSE(options: StartChatSSEOptions) {
     onAddMessage,
     onStreamStart,
     onStreamEvent,
+    onRagMedia,
     setIsLoading,
     onStreamEnd,
   } = options
@@ -114,13 +116,33 @@ export function startChatSSE(options: StartChatSSEOptions) {
     }
   })
 
+  chatResponseSource.addEventListener("rag-media", (ev: MessageEvent) => {
+    try {
+      const data: IRagMediaEvent = JSON.parse(ev.data)
+      if (onRagMedia) {
+        onRagMedia(data, conversationId)
+      }
+    } catch (error) {
+      console.error("Error parsing rag-media data:", error)
+    }
+  })
+
   sseConnection = chatResponseSource
   return chatResponseSource
 }
 
-export const createConversationId = async (
-  url: string = "https://api.thinkthinksyn.com/legalexp/chat/law/conversation/create_id"
-) => {
+/**
+ * Creates a conversation ID by fetching from a URL endpoint.
+ * @param url - The URL endpoint to fetch the conversation ID from. Required.
+ * @returns The conversation ID as a string.
+ * @throws Error if URL is not provided or fetch fails.
+ */
+export const createConversationId = async (url?: string) => {
+  if (!url) {
+    throw new Error(
+      "Conversation ID URL is required. Please provide a URL or use a custom function via conversationIdSource."
+    )
+  }
   const resp = await fetch(url).then((res) => res.text())
   return resp
 }
