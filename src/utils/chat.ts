@@ -150,7 +150,8 @@ export const createConversationId = async (url?: string) => {
       "Conversation ID URL is required. Please provide a URL or use a custom function via conversationIdSource."
     )
   }
-  const resp = await fetch(url).then((res) => res.text())
-  
-  return resp.trim().replace(/^"(.*)"$/, '$1')
+  const resp = await fetch(url)
+  const text = await resp.text()
+  // replace all # to empty string and remove the " quotes
+  return text.trim().replace(/#/g, "").replace(/"+/g, "")
 }
