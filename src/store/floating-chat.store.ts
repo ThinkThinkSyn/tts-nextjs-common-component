@@ -132,6 +132,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
                   type: "rag-media",
                   data: media.url,
                   content: media.url,
+                  fileName: media.id,
                 } as IChatMedia
                 
                 message.parts!.push({
