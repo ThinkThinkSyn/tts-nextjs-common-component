@@ -32,10 +32,17 @@
   },
   "files": [
     "dist",
+    "src",
+    "esbuild.config.ts",
+    "generate-exports.js",
+    "postinstall.js",
+    "tsconfig.build.json",
+    "tsconfig.json",
     "README.md"
   ],
   "scripts": {
     "prepare": "ts-patch install -s",
+    "postinstall": "node postinstall.js",
     "build": "npm run clean && node generate-exports.js && tsx esbuild.config.js && tsc --project tsconfig.build.json",
     "dev": "tsx esbuild.config.js --watch",
     "test": "next dev",

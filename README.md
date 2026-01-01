@@ -4,9 +4,38 @@ Common Next.js utilities, hooks, stores, and types for sharing across repositori
 
 ## Installation
 
+### From npm (Stable releases)
+
 ```bash
 npm install @thinkthinksyn/nextjs-component
 ```
+
+### From GitHub (Development/Latest)
+
+When installing from GitHub, the package will automatically build from source during installation:
+
+```bash
+# Install from main branch
+npm install git+https://github.com/ThinkThinkSyn/tts-nextjs-common-component.git
+
+# Install from a specific branch (e.g., dev)
+npm install git+https://github.com/ThinkThinkSyn/tts-nextjs-common-component.git#dev
+
+# Install from a specific commit
+npm install git+https://github.com/ThinkThinkSyn/tts-nextjs-common-component.git#commit-sha
+```
+
+Or add to your `package.json`:
+
+```json
+{
+  "dependencies": {
+    "@thinkthinksyn/nextjs-component": "git+https://github.com/ThinkThinkSyn/tts-nextjs-common-component.git#dev"
+  }
+}
+```
+
+**Note:** When installing from GitHub, the build process runs automatically via the `postinstall` script. Make sure you have the required devDependencies available during installation.
 
 ## Peer Dependencies
 
@@ -173,6 +202,36 @@ This package includes the following dependencies:
 - `react-i18next`: Internationalization
 - `idb-keyval`: IndexedDB wrapper
 - And more...
+
+## Troubleshooting
+
+### "Cannot find module '@thinkthinksyn/nextjs-component'" when installing from GitHub
+
+This error occurs when the package is installed from GitHub but hasn't been built yet. The `postinstall` script should automatically build the package, but if it fails:
+
+1. **Check that you have all devDependencies available:**
+   ```bash
+   npm install
+   ```
+
+2. **Manually build the package in node_modules:**
+   ```bash
+   cd node_modules/@thinkthinksyn/nextjs-component
+   npm run build
+   ```
+
+3. **Or remove and reinstall:**
+   ```bash
+   npm uninstall @thinkthinksyn/nextjs-component
+   npm install git+https://github.com/ThinkThinkSyn/tts-nextjs-common-component.git#dev
+   ```
+
+### Build fails during installation
+
+If the automatic build fails during `npm install`, check:
+- Node.js version (requires Node 16+)
+- Available disk space
+- Network connectivity (for downloading dependencies)
 
 ## License
 
