@@ -151,5 +151,6 @@ export const createConversationId = async (url?: string) => {
     )
   }
   const resp = await fetch(url).then((res) => res.text())
-  return resp
+  
+  return resp.trim().replace(/^"(.*)"$/, '$1')
 }
