@@ -19,6 +19,8 @@ export interface ChatConversation extends DbConversation {
   isPinned?: boolean
   isArchived?: boolean
   votes?: Vote[]
+  title: string
+
 }
 
 /**
