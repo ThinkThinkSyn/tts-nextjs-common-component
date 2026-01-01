@@ -13,14 +13,18 @@ import { persist, createJSONStorage, devtools } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 
 export interface ChatConversation extends DbConversation {
+  id: string
+  title: string
+  messages: IChatMessage[]
+  createdAt: number
+  updatedAt: number
   relatedArticles: IArticles[]
   relatedQuestions: string[]
   isStarred?: boolean
   isPinned?: boolean
   isArchived?: boolean
   votes?: Vote[]
-  title: string
-
+  language: string
 }
 
 /**
