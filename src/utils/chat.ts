@@ -85,6 +85,7 @@ export function startChatSSE(options: StartChatSSEOptions) {
     setIsLoading(false)
     onStreamEnd(conversationId)
     if (sseConnection) sseConnection.close()
+      throw new Error(ev)
   }
 
   chatResponseSource.onabort = () => {
