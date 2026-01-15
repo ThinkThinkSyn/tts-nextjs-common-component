@@ -56,6 +56,7 @@ interface ChatAction {
   onAddMessage: (message: IChatMessage, convId: string) => void
   onStreamStart: (convId: string) => void
   onStreamEvent: (data: string, type: string, convId: string) => void
+  updateLastMessageLog: (logMessage: string, convId: string) => void
   onRagMedia: (media: IRagMediaEvent, convId: string) => void
   onStreamEnd: (convId: string) => void
   setSseConnection: (convId: string, connection: any) => void
@@ -110,6 +111,8 @@ function _getConv(
   convId: string
 ): WritableDraft<ChatConversation> | undefined {
   const conversations = userConversations[userId]
+  // Defensive check: return undefined if userId doesn't exist
+  if (!conversations) return undefined
   return conversations.find((conv) => conv.id === convId)
 }
 
@@ -146,6 +149,10 @@ export const useChatStore = create<BoundState>()(
             if (state.sseConnections[convId]) {
               state.sseConnections[convId].close()
               delete state.sseConnections[convId]
+            }
+            // Clean up pending RAG media for this conversation
+            if (state.pendingRagMedia[convId]) {
+              delete state.pendingRagMedia[convId]
             }
           }),
 
@@ -214,6 +221,19 @@ export const useChatStore = create<BoundState>()(
             ) {
               const lastMessageIndex = conversation.messages.length - 1
               conversation.messages[lastMessageIndex].content += data
+            } else if (type === "log" && data) {
+              // Handle log events - parse the log data and update last message
+              try {
+                const logData = typeof data === "string" ? JSON.parse(data) : data
+                if (logData.message && conversation.messages.length > 0) {
+                  const lastMessageIndex = conversation.messages.length - 1
+                  if (conversation.messages[lastMessageIndex].role === "assistant") {
+                    conversation.messages[lastMessageIndex].logMessage = logData.message
+                  }
+                }
+              } catch (error) {
+                console.error("Failed to parse log event:", error)
+              }
             } else if (type === "conversation_title") {
               conversation.title = data
             } else if (type === "related_questions") {
@@ -226,6 +246,23 @@ export const useChatStore = create<BoundState>()(
             }
 
             conversation.updatedAt = Date.now()
+          }),
+
+        updateLastMessageLog: (logMessage: string, convId: string) =>
+          set((state) => {
+            const conversation = _getConv(
+              state.allUsersConversations,
+              state.currentUserId,
+              convId
+            )
+            if (conversation && conversation.messages.length > 0) {
+              const lastMessageIndex = conversation.messages.length - 1
+              // Only update log if the message doesn't have content yet
+              // This ensures log messages show before actual content
+              if (conversation.messages[lastMessageIndex].role === "assistant") {
+                conversation.messages[lastMessageIndex].logMessage = logMessage
+              }
+            }
           }),
 
         onStreamEnd: (convId: string) =>
@@ -242,6 +279,10 @@ export const useChatStore = create<BoundState>()(
             // Clear the SSE connection reference
             if (state.sseConnections[convId]) {
               delete state.sseConnections[convId]
+            }
+            // Clean up pending RAG media for this conversation
+            if (state.pendingRagMedia[convId]) {
+              delete state.pendingRagMedia[convId]
             }
           }),
 

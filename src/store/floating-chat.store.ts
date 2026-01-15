@@ -2,7 +2,7 @@
 
 import { IChatMessage, IChatMedia, IRagMediaEvent } from "@/types/chat.type"
 import { create } from "zustand"
-import { persist, createJSONStorage, devtools } from "zustand/middleware"
+import { persist, createJSONStorage, devtools, StateStorage } from "zustand/middleware"
 import { immer } from "zustand/middleware/immer"
 import { indexDBStorage } from "@/utils/storage"
 import { createConversationId, startChatSSE } from "@/utils/chat"
@@ -12,6 +12,78 @@ export const SUBMIT_ERRORS = Object.freeze({
   FAIL_CONV: "Failed to start conversation. Please try again.",
   FAIL_RESP: "Failed to get response. Please try again.",
 })
+
+/** Configuration for submitting messages */
+export interface SubmitConfig {
+  userEndpoint: string
+  guestEndpoint: string
+  defaultTitle: string
+  userAccessToken: string | undefined
+  /** URL to fetch conversation ID from, or a custom function that returns a conversation ID */
+  conversationIdSource?: string | (() => Promise<string>)
+  /** Custom parameters to be included in the request body */
+  customParams?: Record<string, any>
+}
+
+/** Custom handlers for chat operations */
+export interface ChatHandlers {
+  /** Custom submit handler - if provided, overrides default implementation */
+  onSubmit?: (
+    content: string,
+    attachments: IChatMedia[] | undefined,
+    context: {
+      messages: IChatMessage[]
+      conversationId: string | null
+      config: SubmitConfig
+    }
+  ) => Promise<{
+    error?: string
+    conversationId?: string
+    connection?: any
+  }>
+  
+  /** Custom conversation ID creator */
+  createConversationId?: (
+    source?: string | (() => Promise<string>)
+  ) => Promise<string>
+  
+  /** Custom message validator */
+  validateMessage?: (
+    content: string,
+    attachments?: IChatMedia[]
+  ) => string | undefined
+  
+  /** Custom error handler */
+  onError?: (error: Error) => void
+  
+  /** Custom message transformer before adding to state */
+  transformMessage?: (message: IChatMessage) => IChatMessage
+  
+  /** Custom clear handler */
+  onClear?: () => void | Promise<void>
+}
+
+/** Storage configuration */
+export interface StorageConfig {
+  /** Storage strategy (default: indexDB) */
+  storage?: StateStorage
+  /** Storage key name (default: 'floating-chat') */
+  name?: string
+  /** Whether to enable devtools (default: true) */
+  enableDevtools?: boolean
+  /** Whether to skip hydration on mount (default: true) */
+  skipHydration?: boolean
+}
+
+/** Complete configuration for floating chat store */
+export interface FloatingChatConfig {
+  /** Custom handlers for chat operations */
+  handlers?: ChatHandlers
+  /** Storage configuration */
+  storage?: StorageConfig
+  /** Default submit configuration (can be overridden per submit) */
+  defaultSubmitConfig?: Partial<SubmitConfig>
+}
 
 interface FloatingChatState {
   /** Whether the floating chat widget is open/expanded */
@@ -24,6 +96,10 @@ interface FloatingChatState {
   input: string
   /** Current conversation ID */
   conversationId: string | null
+  /** Current conversation title */
+  conversationTitle: string | null
+  /** Related questions for the current conversation */
+  relatedQuestions: string[]
   /** Whether the clear dialog is shown */
   showClearDialog: boolean
   /** Last error that occurred */
@@ -49,6 +125,8 @@ interface FloatingChatActions {
   setInput: (input: string) => void
   /** Update the last message content (for streaming) */
   updateLastMessage: (content: string) => void
+  /** Update the last message log/status message */
+  updateLastMessageLog: (logMessage: string) => void
   /** Add RAG media to the last message */
   onRagMedia: (media: IRagMediaEvent) => void
   /** Start streaming response */
@@ -57,6 +135,10 @@ interface FloatingChatActions {
   endStreaming: () => void
   /** Set conversation ID */
   setConversationId: (id: string | null) => void
+  /** Set conversation title */
+  setConversationTitle: (title: string) => void
+  /** Set related questions */
+  setRelatedQuestions: (questions: string[]) => void
   /** Set show clear dialog state */
   setShowClearDialog: (show: boolean) => void
   /** Set error state */
@@ -77,29 +159,36 @@ interface FloatingChatActions {
   handleSubmit: (
     content: string,
     attachments: IChatMedia[] | undefined,
-    config: {
-      userEndpoint: string
-      guestEndpoint: string
-      defaultTitle: string
-      userAccessToken: string | undefined
-      /** URL to fetch conversation ID from, or a custom function that returns a conversation ID */
-      conversationIdSource?: string | (() => Promise<string>)
-    }
+    config: SubmitConfig
   ) => Promise<(typeof SUBMIT_ERRORS)[keyof typeof SUBMIT_ERRORS] | undefined>
 }
 
 type FloatingChatStore = FloatingChatState & FloatingChatActions
 
-export const useFloatingChatStore = create<FloatingChatStore>()(
-  devtools(
-    persist(
-      immer((set) => ({
+/** Create a configured floating chat store */
+export const createFloatingChatStore = (config?: FloatingChatConfig) => {
+  const {
+    handlers = {},
+    storage: storageConfig = {},
+    defaultSubmitConfig = {},
+  } = config || {}
+
+  const {
+    storage = indexDBStorage,
+    name = "floating-chat",
+    enableDevtools = true,
+    skipHydration = true,
+  } = storageConfig
+
+  const storeCreator = immer<FloatingChatStore>((set) => ({
         // Initial state
         isOpen: false,
         messages: [],
         isLoading: false,
         input: "",
         conversationId: null,
+        conversationTitle: null,
+        relatedQuestions: [],
         showClearDialog: false,
         error: null,
         pendingRagMedia: [],
@@ -118,23 +207,28 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
 
         addMessage: (message: IChatMessage) =>
           set((state) => {
+            // Apply custom message transformer if provided
+            let processedMessage = handlers.transformMessage
+              ? handlers.transformMessage(message)
+              : message
+
             // If this is an assistant message and we have pending RAG media, attach it
-            if (message.role === "assistant" && state.pendingRagMedia.length > 0) {
-              if (!message.medias) {
-                message.medias = {}
+            if (processedMessage.role === "assistant" && state.pendingRagMedia.length > 0) {
+              if (!processedMessage.medias) {
+                processedMessage.medias = {}
               }
-              if (!message.parts) {
-                message.parts = []
+              if (!processedMessage.parts) {
+                processedMessage.parts = []
               }
               
               state.pendingRagMedia.forEach((media, index) => {
-                message.medias![index] = {
+                processedMessage.medias![index] = {
                   type: "rag-media",
                   data: media.url,
                   fileName: media.id,
                 } as IChatMedia
                 
-                message.parts!.push({
+                processedMessage.parts!.push({
                   type: "file",
                   url: media.url,
                   mediaType: media.type,
@@ -146,7 +240,7 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
               state.pendingRagMedia = []
             }
             
-            state.messages.push(message)
+            state.messages.push(processedMessage)
           }),
 
         clearMessages: () =>
@@ -170,6 +264,18 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             if (state.messages.length > 0) {
               const lastMessageIndex = state.messages.length - 1
               state.messages[lastMessageIndex].content += content
+            }
+          }),
+
+        updateLastMessageLog: (logMessage: string) =>
+          set((state) => {
+            if (state.messages.length > 0) {
+              const lastMessageIndex = state.messages.length - 1
+              // Only update log if the message doesn't have content yet
+              // This ensures log messages show before actual content
+              if (state.messages[lastMessageIndex].role === "assistant") {
+                state.messages[lastMessageIndex].logMessage = logMessage
+              }
             }
           }),
 
@@ -200,6 +306,16 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             state.conversationId = id
           }),
 
+        setConversationTitle: (title: string) =>
+          set((state) => {
+            state.conversationTitle = title
+          }),
+
+        setRelatedQuestions: (questions: string[]) =>
+          set((state) => {
+            state.relatedQuestions = questions
+          }),
+
         setShowClearDialog: (show: boolean) =>
           set((state) => {
             state.showClearDialog = show
@@ -208,6 +324,9 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
         setError: (error: Error | null) =>
           set((state) => {
             state.error = error
+            if (error && handlers.onError) {
+              handlers.onError(error)
+            }
           }),
 
         clearError: () =>
@@ -234,14 +353,22 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             state.showClearDialog = true
           }),
 
-        handleConfirmClear: () =>
+        handleConfirmClear: async () => {
+          // Call custom clear handler if provided
+          if (handlers.onClear) {
+            await handlers.onClear()
+          }
+          
           set((state) => {
             state.messages = []
             state.conversationId = null
+            state.conversationTitle = null
+            state.relatedQuestions = []
             state.input = ""
             state.showClearDialog = false
             state.pendingRagMedia = []
-          }),
+          })
+        },
 
         handleCancelClear: () =>
           set((state) => {
@@ -251,43 +378,114 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
         handleSubmit: async (
           content: string,
           attachments: IChatMedia[] | undefined,
-          config: {
-            userEndpoint: string
-            guestEndpoint: string
-            defaultTitle: string
-            userAccessToken: string | undefined
-            /** URL to fetch conversation ID from, or a custom function that returns a conversation ID */
-            conversationIdSource?: string | (() => Promise<string>)
-          }
+          config: SubmitConfig
         ) => {
-          const state = useFloatingChatStore.getState()
+          // Merge with default config
+          const finalConfig = { ...defaultSubmitConfig, ...config } as SubmitConfig
+          
+          const getState = () => {
+            // Use a local reference that will be bound to the actual store
+            const boundStore = storeRef.current
+            return boundStore ? boundStore.getState() : null
+          }
+          
+          const state = getState()
+          if (!state) return SUBMIT_ERRORS.FAIL_RESP
 
-          if (!content.trim() && (!attachments || attachments.length === 0)) {
-            return SUBMIT_ERRORS.NO_MSG
+          // Use custom validator if provided
+          if (handlers.validateMessage) {
+            const validationError = handlers.validateMessage(content, attachments)
+            if (validationError) {
+              return validationError as any
+            }
+          } else {
+            // Default validation
+            if (!content.trim() && (!attachments || attachments.length === 0)) {
+              return SUBMIT_ERRORS.NO_MSG
+            }
           }
 
           // Create conversation ID if not exists
           let currentConversationId = state.conversationId
           if (!currentConversationId) {
             try {
-              // Support custom function or URL for conversation ID creation
-              if (typeof config.conversationIdSource === "function") {
-                currentConversationId = await config.conversationIdSource()
-              } else {
-                currentConversationId = await createConversationId(
-                  config.conversationIdSource
+              // Use custom conversation ID creator if provided
+              if (handlers.createConversationId) {
+                currentConversationId = await handlers.createConversationId(
+                  finalConfig.conversationIdSource
                 )
+              } else {
+                // Default implementation
+                if (typeof finalConfig.conversationIdSource === "function") {
+                  currentConversationId = await finalConfig.conversationIdSource()
+                } else {
+                  currentConversationId = await createConversationId(
+                    finalConfig.conversationIdSource
+                  )
+                }
               }
-              useFloatingChatStore
-                .getState()
-                .setConversationId(currentConversationId)
+              getState()?.setConversationId(currentConversationId)
             } catch (error) {
               console.error("Failed to create conversation ID:", error)
+              const storeActions = getState()
+              if (storeActions) {
+                storeActions.setError(error as Error)
+                storeActions.setLoading(false)
+              }
               return SUBMIT_ERRORS.FAIL_CONV
             }
           }
 
-          // Add user message
+          // Use custom submit handler if provided
+          if (handlers.onSubmit) {
+            const storeActions = getState()
+            if (!storeActions) return SUBMIT_ERRORS.FAIL_RESP
+            
+            storeActions.setInput("")
+            storeActions.setLoading(true)
+            storeActions.clearError()
+
+            try {
+              const result = await handlers.onSubmit(content, attachments, {
+                messages: state.messages,
+                conversationId: currentConversationId,
+                config: finalConfig,
+              })
+
+              if (result.error) {
+                getState()?.setLoading(false)
+                return result.error as any
+              }
+
+              if (result.conversationId) {
+                getState()?.setConversationId(result.conversationId)
+              }
+
+              if (result.connection) {
+                const boundStore = storeRef.current
+                if (boundStore) {
+                  boundStore.setState({ sseConnection: result.connection })
+                }
+              }
+
+              return undefined
+            } catch (error: any) {
+              const storeActions = getState()
+              if (storeActions) {
+                storeActions.setLoading(false)
+                storeActions.setError(error)
+                // Clean up pending RAG media on error
+                const boundStore = storeRef.current
+                if (boundStore) {
+                  boundStore.setState({ pendingRagMedia: [] })
+                }
+              }
+              console.error("Custom submit handler error:", error)
+              return SUBMIT_ERRORS.FAIL_RESP
+            }
+          }
+
+          // Default implementation
           const userMessage: IChatMessage = {
             role: "user",
             content: content.trim(),
@@ -307,7 +505,9 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
             }
           }
 
-          const storeActions = useFloatingChatStore.getState()
+          const storeActions = getState()
+          if (!storeActions) return SUBMIT_ERRORS.FAIL_RESP
+          
           storeActions.addMessage(userMessage)
           storeActions.setInput("")
           storeActions.setLoading(true)
@@ -315,62 +515,116 @@ export const useFloatingChatStore = create<FloatingChatStore>()(
 
           try {
             const connection = startChatSSE({
-              userEndpoint: config.userEndpoint,
-              guestEndpoint: config.guestEndpoint,
+              userEndpoint: finalConfig.userEndpoint,
+              guestEndpoint: finalConfig.guestEndpoint,
               conversation: {
                 messages: state.messages,
-                title: config.defaultTitle,
+                title: finalConfig.defaultTitle,
               },
               conversationId: currentConversationId,
               newMessage: userMessage,
-              userAccessToken: config.userAccessToken,
+              userAccessToken: finalConfig.userAccessToken,
+              customParams: finalConfig.customParams,
               onAddMessage: (message) => {
-                useFloatingChatStore.getState().addMessage(message)
+                getState()?.addMessage(message)
               },
-              onStreamStart: () =>
-                useFloatingChatStore.getState().setLoading(true),
+              onStreamStart: () => getState()?.setLoading(true),
               onStreamEvent: (data, type) => {
                 if (["msg", "message", "text"].includes(type) && data) {
-                  useFloatingChatStore.getState().updateLastMessage(data)
+                  getState()?.updateLastMessage(data)
+                } else if (type === "log" && data) {
+                  // Handle log events - parse the log data and update last message
+                  try {
+                    const logData = typeof data === "string" ? JSON.parse(data) : data
+                    if (logData.message) {
+                      getState()?.updateLastMessageLog(logData.message)
+                    }
+                  } catch (error) {
+                    console.error("Failed to parse log event:", error)
+                  }
+                } else if (type === "conversation_title" && data) {
+                  getState()?.setConversationTitle(data)
+                } else if (type === "related_questions" && data) {
+                  try {
+                    const questions = JSON.parse(data)
+                    getState()?.setRelatedQuestions(questions)
+                  } catch (error) {
+                    console.error("Failed to parse related_questions:", error)
+                  }
                 }
               },
               onRagMedia: (media) => {
-                useFloatingChatStore.getState().onRagMedia(media)
+                getState()?.onRagMedia(media)
               },
               onError: (error) => {
-                useFloatingChatStore.getState().setError(error)
+                getState()?.setError(error)
               },
-              setIsLoading: useFloatingChatStore.getState().setLoading,
+              setIsLoading: (loading) => getState()?.setLoading(loading),
               onStreamEnd: () => {
-                const store = useFloatingChatStore.getState()
-                store.setLoading(false)
+                const currentState = getState()
+                currentState?.setLoading(false)
                 // Clear the connection reference
-                useFloatingChatStore.setState({ sseConnection: null })
+                const boundStore = storeRef.current
+                if (boundStore) {
+                  boundStore.setState({ sseConnection: null })
+                }
               },
             })
             
             // Store the connection so handleStop can close it
-            useFloatingChatStore.setState({ sseConnection: connection })
+            const boundStore = storeRef.current
+            if (boundStore) {
+              boundStore.setState({ sseConnection: connection })
+            }
           } catch (error: any) {
-            useFloatingChatStore.getState().setLoading(false)
+            const storeActions = getState()
+            if (storeActions) {
+              storeActions.setLoading(false)
+              storeActions.setError(error)
+              // Clean up pending RAG media on error
+              const boundStore = storeRef.current
+              if (boundStore) {
+                boundStore.setState({ pendingRagMedia: [] })
+              }
+            }
             console.error("Floating chat error:", error)
             return SUBMIT_ERRORS.FAIL_RESP
           }
         },
-      })),
-      {
-        name: "floating-chat",
-        storage: createJSONStorage(() => indexDBStorage),
+      }))
+
+  const middlewareStack = enableDevtools
+    ? devtools(
+        persist(storeCreator, {
+          name,
+          storage: createJSONStorage(() => storage),
+          partialize: (state) => ({
+            messages: state.messages,
+            isOpen: state.isOpen,
+          }),
+          skipHydration,
+        }),
+        { name: `${name}-store` }
+      )
+    : persist(storeCreator, {
+        name,
+        storage: createJSONStorage(() => storage),
         partialize: (state) => ({
           messages: state.messages,
           isOpen: state.isOpen,
         }),
-        // Skip hydration on first render to prevent suspension
-        skipHydration: true,
-      }
-    ),
-    {
-      name: "floating-chat-store",
-    }
-  )
-)
+        skipHydration,
+      })
+
+  // Store reference for internal use - create before store to avoid race conditions
+  // Using any to avoid complex Zustand type gymnastics
+  const storeRef: { current: any } = { current: null }
+  
+  const store = create<FloatingChatStore>()(middlewareStack as any)
+  storeRef.current = store
+
+  return store
+}
+
+/** Default instance for backward compatibility */
+export const useFloatingChatStore = createFloatingChatStore()

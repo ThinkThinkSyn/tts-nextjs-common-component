@@ -15,6 +15,7 @@ export interface StartChatSSEOptions {
   conversationId: string
   newMessage: IChatMessage
   userAccessToken: string | undefined
+  customParams?: Record<string, any>
   onAddMessage: (msg: IChatMessage, convId: string) => void
   onStreamStart: (convId: string) => void
   onStreamEvent: (data: string, type: string, convId: string) => void
@@ -32,6 +33,7 @@ export function startChatSSE(options: StartChatSSEOptions) {
     conversationId,
     newMessage,
     userAccessToken,
+    customParams,
     onAddMessage,
     onStreamStart,
     onStreamEvent,
@@ -47,6 +49,7 @@ export function startChatSSE(options: StartChatSSEOptions) {
         payload: JSON.stringify({
           title: conversation.title,
           inputs: [newMessage],
+          ...customParams,
         }),
         method: "POST",
         headers: {
@@ -58,6 +61,7 @@ export function startChatSSE(options: StartChatSSEOptions) {
         payload: JSON.stringify({
           title: conversation.title,
           inputs: [...conversation.messages, newMessage],
+          ...customParams,
         }),
         method: "POST",
         headers: {

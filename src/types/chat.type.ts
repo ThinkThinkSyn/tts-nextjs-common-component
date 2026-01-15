@@ -34,6 +34,8 @@ export interface IChatMessage extends IChatPrompt {
   history_index?: number
   /**Message parts for multimodal content */
   parts?: Array<ChatMessagePart>
+  /**Log/status message displayed before actual content (e.g., "Searching knowledge...") */
+  logMessage?: string
 }
 
 export interface ChatMessagePart {
