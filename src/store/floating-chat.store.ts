@@ -600,7 +600,6 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
           storage: createJSONStorage(() => storage),
           partialize: (state) => ({
             messages: state.messages,
-            isOpen: state.isOpen,
           }),
           skipHydration,
         }),
@@ -611,7 +610,6 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
         storage: createJSONStorage(() => storage),
         partialize: (state) => ({
           messages: state.messages,
-          isOpen: state.isOpen,
         }),
         skipHydration,
       })
