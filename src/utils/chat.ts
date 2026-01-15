@@ -138,6 +138,14 @@ export function startChatSSE(options: StartChatSSEOptions) {
     }
   })
 
+  chatResponseSource.addEventListener("log", (ev: MessageEvent) => {
+    try {
+      onStreamEvent(ev.data, "log", conversationId)
+    } catch (error) {
+      console.error("Error parsing log data:", error)
+    }
+  })
+
   sseConnection = chatResponseSource
   return chatResponseSource
 }

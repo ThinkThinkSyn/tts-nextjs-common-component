@@ -536,7 +536,9 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
                   // Handle log events - parse the log data and update last message
                   try {
                     const logData = typeof data === "string" ? JSON.parse(data) : data
+                    console.log("Log data received:", logData)
                     if (logData.message) {
+                      console.log("Log event:", logData.message)
                       getState()?.updateLastMessageLog(logData.message)
                     }
                   } catch (error) {
