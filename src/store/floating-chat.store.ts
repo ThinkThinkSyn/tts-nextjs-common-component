@@ -516,7 +516,6 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
           storeActions.setInput("")
           storeActions.setLoading(true)
           storeActions.clearError()
-          storeActions.clearLogMessages()
 
           try {
             const connection = startChatSSE({
@@ -536,6 +535,11 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
               onStreamStart: () => getState()?.setLoading(true),
               onStreamEvent: (data, type) => {
                 if (["msg", "message", "text"].includes(type) && data) {
+                  // Clear log messages when actual content starts arriving
+                  const currentState = getState()
+                  if (currentState && currentState.logMessages.length > 0) {
+                    currentState.clearLogMessages()
+                  }
                   getState()?.updateLastMessage(data)
                 } else if (type === "log" && data) {
                   // Handle log events - parse the log data and add to log messages array
@@ -559,6 +563,11 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
                 }
               },
               onRagMedia: (media) => {
+                // Clear log messages when RAG media arrives
+                const currentState = getState()
+                if (currentState && currentState.logMessages.length > 0) {
+                  currentState.clearLogMessages()
+                }
                 getState()?.onRagMedia(media)
               },
               onError: (error) => {
@@ -568,6 +577,7 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
               onStreamEnd: () => {
                 const currentState = getState()
                 currentState?.setLoading(false)
+                currentState?.clearLogMessages()
                 // Clear the connection reference
                 const boundStore = storeRef.current
                 if (boundStore) {
@@ -586,6 +596,7 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
             if (storeActions) {
               storeActions.setLoading(false)
               storeActions.setError(error)
+              storeActions.clearLogMessages()
               // Clean up pending RAG media on error
               const boundStore = storeRef.current
               if (boundStore) {
@@ -605,6 +616,9 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
           storage: createJSONStorage(() => storage),
           partialize: (state) => ({
             messages: state.messages,
+            conversationId: state.conversationId,
+            conversationTitle: state.conversationTitle,
+            relatedQuestions: state.relatedQuestions,
           }),
           skipHydration,
         }),
@@ -615,6 +629,9 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
         storage: createJSONStorage(() => storage),
         partialize: (state) => ({
           messages: state.messages,
+          conversationId: state.conversationId,
+          conversationTitle: state.conversationTitle,
+          relatedQuestions: state.relatedQuestions,
         }),
         skipHydration,
       })

@@ -169,11 +169,6 @@ export const useChatStore = create<BoundState>()(
               convId
             )
             if (conversation) {
-              // Clear log messages when a user message is added
-              if (message.role === "user") {
-                state.logMessages[convId] = []
-              }
-              
               // If this is an assistant message and we have pending RAG media, attach it
               const pendingMedia = state.pendingRagMedia[convId] || []
               if (message.role === "assistant" && pendingMedia.length > 0) {
@@ -230,6 +225,10 @@ export const useChatStore = create<BoundState>()(
             ) {
               const lastMessageIndex = conversation.messages.length - 1
               conversation.messages[lastMessageIndex].content += data
+              // Clear log messages when actual content starts arriving
+              if (state.logMessages[convId]?.length > 0) {
+                state.logMessages[convId] = []
+              }
             } else if (type === "log" && data) {
               // Handle log events - parse the log data and add to log messages array
               try {
@@ -286,6 +285,10 @@ export const useChatStore = create<BoundState>()(
             if (state.pendingRagMedia[convId]) {
               delete state.pendingRagMedia[convId]
             }
+            // Clear log messages when stream ends
+            if (state.logMessages[convId]) {
+              state.logMessages[convId] = []
+            }
           }),
 
         setSseConnection: (convId: string, connection: any) =>
@@ -300,6 +303,10 @@ export const useChatStore = create<BoundState>()(
               state.pendingRagMedia[convId] = []
             }
             state.pendingRagMedia[convId].push(media)
+            // Clear log messages when RAG media arrives
+            if (state.logMessages[convId]?.length > 0) {
+              state.logMessages[convId] = []
+            }
           }),
 
         onLoadConversations: (conversations) =>
