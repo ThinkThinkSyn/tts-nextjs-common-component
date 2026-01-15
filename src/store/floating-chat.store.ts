@@ -108,6 +108,8 @@ interface FloatingChatState {
   pendingRagMedia: IRagMediaEvent[]
   /** Active SSE connection */
   sseConnection: any | null
+  /** Log messages for the current conversation */
+  logMessages: string[]
 }
 
 interface FloatingChatActions {
@@ -125,8 +127,10 @@ interface FloatingChatActions {
   setInput: (input: string) => void
   /** Update the last message content (for streaming) */
   updateLastMessage: (content: string) => void
-  /** Update the last message log/status message */
-  updateLastMessageLog: (logMessage: string) => void
+  /** Add a log message to the conversation */
+  addLogMessage: (logMessage: string) => void
+  /** Clear all log messages */
+  clearLogMessages: () => void
   /** Add RAG media to the last message */
   onRagMedia: (media: IRagMediaEvent) => void
   /** Start streaming response */
@@ -193,6 +197,7 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
         error: null,
         pendingRagMedia: [],
         sseConnection: null,
+        logMessages: [],
 
         // Actions
         toggleOpen: () =>
@@ -267,16 +272,14 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
             }
           }),
 
-        updateLastMessageLog: (logMessage: string) =>
+        addLogMessage: (logMessage: string) =>
           set((state) => {
-            if (state.messages.length > 0) {
-              const lastMessageIndex = state.messages.length - 1
-              // Only update log if the message doesn't have content yet
-              // This ensures log messages show before actual content
-              if (state.messages[lastMessageIndex].role === "assistant") {
-                state.messages[lastMessageIndex].logMessage = logMessage
-              }
-            }
+            state.logMessages.push(logMessage)
+          }),
+
+        clearLogMessages: () =>
+          set((state) => {
+            state.logMessages = []
           }),
 
         onRagMedia: (media: IRagMediaEvent) =>
@@ -367,6 +370,7 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
             state.input = ""
             state.showClearDialog = false
             state.pendingRagMedia = []
+            state.logMessages = []
           })
         },
 
@@ -512,6 +516,7 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
           storeActions.setInput("")
           storeActions.setLoading(true)
           storeActions.clearError()
+          storeActions.clearLogMessages()
 
           try {
             const connection = startChatSSE({
@@ -533,13 +538,11 @@ export const createFloatingChatStore = (config?: FloatingChatConfig) => {
                 if (["msg", "message", "text"].includes(type) && data) {
                   getState()?.updateLastMessage(data)
                 } else if (type === "log" && data) {
-                  // Handle log events - parse the log data and update last message
+                  // Handle log events - parse the log data and add to log messages array
                   try {
                     const logData = typeof data === "string" ? JSON.parse(data) : data
-                    console.log("Log data received:", logData)
                     if (logData.message) {
-                      console.log("Log event:", logData.message)
-                      getState()?.updateLastMessageLog(logData.message)
+                      getState()?.addLogMessage(logData.message)
                     }
                   } catch (error) {
                     console.error("Failed to parse log event:", error)

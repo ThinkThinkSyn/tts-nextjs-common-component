@@ -44,6 +44,8 @@ interface ChatState {
   pendingRagMedia: Record<string, IRagMediaEvent[]>
   /** Active SSE connections per conversation */
   sseConnections: Record<string, any>
+  /** Log messages per conversation */
+  logMessages: Record<string, string[]>
 }
 
 interface ChatAction {
@@ -56,7 +58,8 @@ interface ChatAction {
   onAddMessage: (message: IChatMessage, convId: string) => void
   onStreamStart: (convId: string) => void
   onStreamEvent: (data: string, type: string, convId: string) => void
-  updateLastMessageLog: (logMessage: string, convId: string) => void
+  addLogMessage: (logMessage: string, convId: string) => void
+  clearLogMessages: (convId: string) => void
   onRagMedia: (media: IRagMediaEvent, convId: string) => void
   onStreamEnd: (convId: string) => void
   setSseConnection: (convId: string, connection: any) => void
@@ -127,6 +130,7 @@ export const useChatStore = create<BoundState>()(
         isStreaming: false,
         pendingRagMedia: {},
         sseConnections: {},
+        logMessages: {},
 
         // User management
         setCurrentUserId: (userId: string) =>
@@ -165,6 +169,11 @@ export const useChatStore = create<BoundState>()(
               convId
             )
             if (conversation) {
+              // Clear log messages when a user message is added
+              if (message.role === "user") {
+                state.logMessages[convId] = []
+              }
+              
               // If this is an assistant message and we have pending RAG media, attach it
               const pendingMedia = state.pendingRagMedia[convId] || []
               if (message.role === "assistant" && pendingMedia.length > 0) {
@@ -222,14 +231,11 @@ export const useChatStore = create<BoundState>()(
               const lastMessageIndex = conversation.messages.length - 1
               conversation.messages[lastMessageIndex].content += data
             } else if (type === "log" && data) {
-              // Handle log events - parse the log data and update last message
+              // Handle log events - parse the log data and add to log messages array
               try {
                 const logData = typeof data === "string" ? JSON.parse(data) : data
-                if (logData.message && conversation.messages.length > 0) {
-                  const lastMessageIndex = conversation.messages.length - 1
-                  if (conversation.messages[lastMessageIndex].role === "assistant") {
-                    conversation.messages[lastMessageIndex].logMessage = logData.message
-                  }
+                if (logData.message) {
+                  get().addLogMessage(logData.message, convId)
                 }
               } catch (error) {
                 console.error("Failed to parse log event:", error)
@@ -248,21 +254,17 @@ export const useChatStore = create<BoundState>()(
             conversation.updatedAt = Date.now()
           }),
 
-        updateLastMessageLog: (logMessage: string, convId: string) =>
+        addLogMessage: (logMessage: string, convId: string) =>
           set((state) => {
-            const conversation = _getConv(
-              state.allUsersConversations,
-              state.currentUserId,
-              convId
-            )
-            if (conversation && conversation.messages.length > 0) {
-              const lastMessageIndex = conversation.messages.length - 1
-              // Only update log if the message doesn't have content yet
-              // This ensures log messages show before actual content
-              if (conversation.messages[lastMessageIndex].role === "assistant") {
-                conversation.messages[lastMessageIndex].logMessage = logMessage
-              }
+            if (!state.logMessages[convId]) {
+              state.logMessages[convId] = []
             }
+            state.logMessages[convId].push(logMessage)
+          }),
+
+        clearLogMessages: (convId: string) =>
+          set((state) => {
+            state.logMessages[convId] = []
           }),
 
         onStreamEnd: (convId: string) =>
