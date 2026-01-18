@@ -41,7 +41,7 @@
     "README.md"
   ],
   "scripts": {
-    "prepare": "node -e \"if (process.env.NODE_ENV !== 'production') require('child_process').execSync('ts-patch install -s', {stdio: 'inherit'})\"",
+    "prepare": "npm run build",
     "postinstall": "node postinstall.js",
     "build": "npm run clean && node generate-exports.js && tsx esbuild.config.ts && tsc --project tsconfig.build.json",
     "dev": "tsx esbuild.config.js --watch",
