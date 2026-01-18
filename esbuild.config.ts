@@ -46,13 +46,15 @@ const pathTransformPlugin: Plugin = {
         /(from ['"]|import\(['"])@\/([^'"]+)(['"'])/g,
         (match, prefix, importPath, suffix) => {
           const targetPath = path.resolve(srcDir, importPath)
-          const relativePath = path.relative(
+          let relativePath = path.relative(
             path.dirname(args.path),
             targetPath
           )
-          const result = `${prefix}${relativePath.replace(/\\/g, "/")}${suffix}`
+          // Normalize path separators to forward slashes for cross-platform compatibility
+          relativePath = relativePath.split(path.sep).join("/")
+          const result = `${prefix}${relativePath}${suffix}`
           //console.log(`${prefix}@/${importPath}${suffix}`, " -> ", result)
-          return `${prefix}${relativePath.replace(/\\/g, "/")}${suffix}`
+          return result
         }
       )
       return { contents: transformed, loader: "tsx" }
